@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+   <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <title>Emotion Classification</title>
+   <link rel="stylesheet" href="style.css">
+   <style>
+      /* General reset */
+      body {
+         margin: 0;
+         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+         background: #f7f9fc;
+         color: #333;
+         display: flex;
+         flex-direction: column;
+         align-items: center;
+         min-height: 100vh;
+      }
+
+      /* Header */
+      .main-title {
+         background: linear-gradient(135deg, #ff758c, #ff7eb3, #6a82fb, #00c6ff);
+         -webkit-background-clip: text;
+         -webkit-text-fill-color: transparent;
+         font-size: 2.5rem;
+         font-weight: 800;
+         margin: 40px 0 20px 0;
+         text-align: center;
+      }
+
+      /* File Upload */
+      .custom-file-upload {
+         display: inline-block;
+         padding: 12px 24px;
+         cursor: pointer;
+         background: #6a82fb;
+         color: white;
+         font-weight: bold;
+         border-radius: 12px;
+         transition: background 0.3s ease;
+      }
+
+      .custom-file-upload:hover {
+         background: #5a6de0;
+      }
+
+      .custom-file-upload input {
+         display: none;
+      }
+
+      /* Spinner */
+      .spinner {
+         border: 6px solid #f3f3f3;
+         border-top: 6px solid #6a82fb;
+         border-radius: 50%;
+         width: 40px;
+         height: 40px;
+         animation: spin 1s linear infinite;
+         margin: 20px auto;
+      }
+
+      @keyframes spin {
+         0% { transform: rotate(0deg); }
+         100% { transform: rotate(360deg); }
+      }
+
+      /* Result box */
+      .result-box {
+         margin-top: 30px;
+         padding: 20px;
+         border-radius: 16px;
+         background: white;
+         box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
+         text-align: center;
+         max-width: 400px;
+         width: 100%;
+         transition: 0.3s ease;
+      }
+
+      #input-image {
+         border-radius: 12px;
+         margin-bottom: 20px;
+         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      }
+
+      /* Prediction progress bars */
+      .prog-bar-container {
+         margin: 12px 0;
+         background: #f0f0f0;
+         border-radius: 20px;
+         overflow: hidden;
+         height: 28px;
+         position: relative;
+      }
+
+      .prog-bar-fill {
+         height: 100%;
+         background: linear-gradient(90deg, #ff758c, #6a82fb);
+         width: 0;
+         transition: width 1s ease;
+      }
+
+      .prog-bar-label {
+         position: absolute;
+         left: 50%;
+         top: 50%;
+         transform: translate(-50%, -50%);
+         font-size: 0.9rem;
+         font-weight: bold;
+         color: #fff;
+         text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+      }
+   </style>
+</head>
+<body>
+
+   <div class="main-title">Emotion Classification</div>
+
+   <div class="centered">
+      <label class="custom-file-upload">
+         <input type="file" accept="image/*" onchange="loadImage(event)">
+         Choose Image
+      </label>
+   </div>
+
+   <div id="loading-spinner" class="spinner" style="display:none;"></div>
+
+   <div class="result-box">
+      <img id="input-image" width="200" style="display:none;" />
+      <div id="label-container"></div>
+   </div>
+
+   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+   <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+
+   <script type="text/javascript">
+
+      const MODEL_URL = "./Model/";
+
+      let model, maxPredictions;
+      let labelContainer;
+
+      function setLoading(isLoading) {
+         document.getElementById('loading-spinner').style.display = isLoading ? 'block' : 'none';
+      }
+
+      async function loadModel() {
+          setLoading(true);
+          const modelURL = MODEL_URL + "model.json";
+          const metadataURL = MODEL_URL + "metadata.json";
+          model = await tmImage.load(modelURL, metadataURL);
+          maxPredictions = model.getTotalClasses();
+          labelContainer = document.getElementById("label-container");
+          labelContainer.innerHTML = '';
+          for (let i = 0; i < maxPredictions; i++) {
+              labelContainer.appendChild(document.createElement("div"));
+          }
+          setLoading(false);
+      }
+
+      loadModel();
+
+      async function loadImage(event) {
+          const imageElement = document.getElementById('input-image');
+          imageElement.style.display = 'none';
+          setLoading(true);
+          imageElement.src = URL.createObjectURL(event.target.files[0]);
+          imageElement.onload = async () => {
+              imageElement.style.display = 'block';
+              await predict(imageElement);
+              setLoading(false);
+          };
+      }
+
+      async function predict(imageElement) {
+          const prediction = await model.predict(imageElement);
+          for (let i = 0; i < maxPredictions; i++) {
+              const className = prediction[i].className;
+              const percent = Math.round(prediction[i].probability * 100);
+              labelContainer.childNodes[i].innerHTML = `
+                  <div class="prog-bar-container">
+                      <div class="prog-bar-fill" style="width:0"></div>
+                      <span class="prog-bar-label">${className}: ${percent}%</span>
+                  </div>
+              `;
+              setTimeout(() => {
+                  const fill = labelContainer.childNodes[i].querySelector('.prog-bar-fill');
+                  fill.style.width = percent + '%';
+              }, 50);
+          }
+      }
+
+   </script>
+</body>
+</html>
